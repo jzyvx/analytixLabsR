@@ -1,7 +1,7 @@
 ---
 title: "factorAnalysis"
-author: "vijayUpadhyay"
-date: "7 October 2016"
+author: "VijayUpadhyay"
+date: "10 October 2016"
 output: html_document
 ---
 
@@ -9,34 +9,114 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Introduction 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+|Parameters         | Description                                                                         |
+|:-----------------:|:-----------------------------------------------------------------------------------:|
+|region             | part of the country user belongs to                                                 |
+|tenure             | how long customer have been using our services                                      |
+|age
+|marital
+|address
+|income
+|ed
+|employ
+|retire
+|gender
+|reside
+|tollfree
+|equip
+|callcard
+|wireless
+|longmon
+|tollmon
+|equipmon
+|cardmon
+|wiremon
+|multline
+|voice
+|pager
+|internet
+|callid
+|callwait
+|forward
+|confer
+|ebill
+|custcat 
 
+### Import and Analyze data file
 ```{r}
-library(sas7bdat)
-dataFrame <- read.sas7bdat("/home/vijayupadhyay/AnalytixLabs/SASUniversityEdition/myfolders/sampleDataset/SAQ.sas7bdat")
-head(dataFrame)
-summary(dataFrame)
 
+dir <- "/home/vijay/Documents/gitRepos/analytixLabsR"
+setwd(dir)
 
-library(foreign)
-c <- read.xport("/home/vijayupadhyay/AnalytixLabs/SASUniversityEdition/myfolders/sampleDataset/SAQ.sas7bdat")
-head(dataFrame2)
-attributes(dataFrame2)$column.info
-str(dataFrame2)
-summary(dataFrame2)
+telcoData <- read.csv("telco.csv")
+names(telcoData)
+str(telcoData)
 
-
-
-fit <- factanal(dataFrame2, 3, rotation="varimax")
-
-library(psych)
-fit2 <- principal(mydata, nfactors=5, rotate="varimax")
-fit2
-fit
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Finding Optimum number of Factors
+
+Factor analysis is used as a first step for many advanced statistical analysis techniques such as clustering. Factor analysis reduces the number of parameters in a dataset and hence reduces the complexity of data analysis process.
+
+Finding the optimum number of factors is a tradeoff between number of factors and Variance captured by these factors. We would like to minimize the number of factors that we take to our further analysis but on the other hand we dont want to lose too much of variance capured by the seleted parameters. Generally we would not like variance to go lower than 60-70%.
+
+To take this decision we would like to have a matrix containing variance for for each corresponding factor value (number of parameters). So we start by creating a correlation matrix from our data which contains correlation of all parameters with every parameter. So as the output we expect an **(n*n)** matrix where **n** is the number of parameters. 
+
+Then we create a scree plot to visualize the eigen values plotted aginst the number of factors. Eigen value of 1 represent no corelation between factors (completely independent). While higher eigen values says that parameters included in the factors are not actually correlated but we forcefully group them. The lower values of eigen values represnt that parameters from one or more factors could be combined.
+
+Finally, we use these eigen values to create our final output of this stage **EigenValueMatrix** which contains variance for each eigen value or no of factors.
+
+
+```{r}
+library(dplyr)
+library(psych)
+library(GPArotation)
+
+corrMat <- cor(telcoData)
+fit <- princomp(telcoData, cor = T)
+#plot(fit, npcs = 30, type = "lines")
+
+scree(corrMat, factors = TRUE, pc = TRUE, main = "Scree Plot", hline = NULL, add = FALSE)
+
+eigenValues <- eigen(corrMat)$values
+eigenValueMatrix <- mutate(data.frame(eigenValues),
+                           cumSumEigen = cumsum(eigenValues),
+                           percentVariance = eigen(corrMat)$values/sum(eigenValues),
+                           cumPercentVariation = cumSumEigen/sum(eigenValues))
+
+write.csv(eigenValueMatrix, "eigenValueMatrix.csv")
+```
+
+
+```{r}
+#Calculating Totals
+library(dplyr)
+library(psych)
+library(GPArotation)
+
+factornalysis1 <- fa(r = corrMat, 9, rotate = "varimax", fm = "ml")
+factornalysis2 <- fa(r = corrMat, 8, rotate = "varimax", fm = "ml")
+
+FASort1 <- fa.sort(factornalysis1)
+FASort2 <- fa.sort(factornalysis2)
+
+ls(FASort1)
+
+summary(FASort1)
+summary(FASort2)
+
+#FASort1$loadings
+loadings1 <- data.frame(FASort1$loadings[1:ncol(telcoData),])
+
+#FASort2$loadings
+loadings2 <- data.frame(FASort2$loadings[1:ncol(telcoData),])
+
+write.csv(loadings1, "9factorAnalysis.csv")
+write.csv(loadings2, "8factorAnalysis.csv")
+
+#factorAnalysis <- factanal(corrMat, 8, rotation = "varimax")
+
+```
